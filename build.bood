@@ -1,23 +1,27 @@
 go_binary {
   name: "server",
   // TODO: Відкорегуйте ім'я пакета.
-  pkg: "github.com/roman-mazur/design-practice-3-template/cmd/server",
+  pkg: "github.com/masha-mcr/arch-design-3/cmd/server",
   srcs: [
     "httptools/**/*.go",
     "signal/**/*.go",
     "cmd/server/*.go"
   ]
+  
 }
 
 go_binary {
   name: "lb",
   // TODO: Відкорегуйте ім'я пакета.
-  pkg: "github.com/roman-mazur/design-practice-3-template/cmd/lb",
+  pkg: "github.com/masha-mcr/arch-design-3/cmd/lb",
   srcs: [
     "httptools/**/*.go",
     "signal/**/*.go",
     "cmd/lb/*.go"
-  ]
+  ],
+  testPkg: "./cmd/lb/...",
+  //it seems like testPkg: "./cmd/..." works as well too, but I have choosen this variant
+
   // TODO: Додайте запуск тестів для балансувальника.
 }
 

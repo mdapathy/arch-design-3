@@ -10,8 +10,8 @@ import (
 	"time"
 	"sync"
 
-	"github.com/roman-mazur/design-practice-3-template/httptools"
-	"github.com/roman-mazur/design-practice-3-template/signal"
+	"github.com/masha-mcr/arch-design-3/httptools"
+	"github.com/masha-mcr/arch-design-3/signal"
 )
 
 const UintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
