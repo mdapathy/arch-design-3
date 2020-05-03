@@ -8,16 +8,30 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"sync"
 
 	"github.com/roman-mazur/design-practice-3-template/httptools"
 	"github.com/roman-mazur/design-practice-3-template/signal"
 )
 
+const UintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
+
+const MaxInt  = 1<<(UintSize-1) - 1
+
+type Server struct {
+	connectionCount int
+	isHealthy bool
+}
+
+type SafeServer struct {
+	v   map[string]Server
+	mux sync.Mutex
+}
+
 var (
 	port = flag.Int("port", 8090, "load balancer port")
 	timeoutSec = flag.Int("timeout-sec", 3, "request timeout time in seconds")
 	https = flag.Bool("https", false, "whether backends support HTTPs")
-
 	traceEnabled = flag.Bool("trace", false, "whether to include tracing information into responses")
 )
 
@@ -28,7 +42,21 @@ var (
 		"server2:8080",
 		"server3:8080",
 	}
+	// serverCount = make(map[string]Server, len(serversPool))
+	safeServer = SafeServer{v: make(map[string]Server, len(serversPool))}
 )
+
+func min(m map[string] Server) string {
+	min := MaxInt
+	k := ""
+	for s, c := range m {
+		if min >= c.connectionCount && c.isHealthy {
+			k = s
+			min = c.connectionCount
+		}
+	}
+	return k
+}
 
 func scheme() string {
 	if *https {
@@ -52,6 +80,11 @@ func health(dst string) bool {
 }
 
 func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
+	safeServer.mux.Lock()
+	s1 := safeServer.v[dst]
+	s1.connectionCount++
+	safeServer.v[dst] = s1
+	safeServer.mux.Unlock()
 	ctx, _ := context.WithTimeout(r.Context(), timeout)
 	fwdRequest := r.Clone(ctx)
 	fwdRequest.RequestURI = ""
@@ -76,30 +109,53 @@ func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			log.Printf("Failed to write response: %s", err)
 		}
+		safeServer.mux.Lock()
+		s2 := safeServer.v[dst]
+		s2.connectionCount--
+		safeServer.v[dst] = s2
+		safeServer.mux.Unlock()
 		return nil
 	} else {
 		log.Printf("Failed to get response from %s: %s", dst, err)
 		rw.WriteHeader(http.StatusServiceUnavailable)
+		safeServer.mux.Lock()
+		s2 := safeServer.v[dst]
+		s2.connectionCount--
+		safeServer.v[dst] = s2
+		safeServer.mux.Unlock()
 		return err
 	}
 }
 
 func main() {
 	flag.Parse()
-
 	// TODO: Використовуйте дані про стан сервреа, щоб підтримувати список тих серверів, яким можна відправляти ззапит.
 	for _, server := range serversPool {
 		server := server
+		//serverCount[server] = Server{0, true}
+		safeServer.mux.Lock()
+		safeServer.v[server] = Server{0, false}
+		safeServer.mux.Unlock()
 		go func() {
 			for range time.Tick(10 * time.Second) {
 				log.Println(server, health(server))
+			}
+		}()
+		go func() {
+			for range time.Tick(1 * time.Second) {
+				safeServer.mux.Lock()
+				s1 := safeServer.v[server]
+				s1.isHealthy = health(server)
+				safeServer.v[server] = s1
+				safeServer.mux.Unlock()
 			}
 		}()
 	}
 
 	frontend := httptools.CreateServer(*port, http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		// TODO: Рееалізуйте свій алгоритм балансувальника.
-		forward(serversPool[0], rw, r)
+		//log.Println(safeServer.v)
+		forward(min(safeServer.v), rw, r)
 	}))
 
 	log.Println("Starting load balancer...")
