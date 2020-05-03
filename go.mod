@@ -1,3 +1,3 @@
-module github.com/roman-mazur/design-practice-3-template
+module github.com/masha-mcr/arch-design-3/
 
 go 1.14
