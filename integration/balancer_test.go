@@ -2,6 +2,8 @@ package integration
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"math"
 	"net/http"
 	"sync"
 	"testing"
@@ -18,6 +20,12 @@ var serversPool = []string{
 	"http://localhost:8080",
 	"http://localhost:8081",
 	"http://localhost:8082",
+}
+
+var serverExpected = map[string]float64{
+	"server1:8080": 0.66, //time of delay  - 1
+	"server2:8080": 0.17, //time of delay  - 2
+	"server3:8080": 0.17, //time of delay  - 2
 }
 
 type sum struct {
@@ -41,11 +49,17 @@ func worker(wg *sync.WaitGroup, client http.Client, m *sum, i int, t *testing.T)
 func TestBalancer(t *testing.T) {
 	m := sum{m: make(map[string]int)}
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	amount := 100
+	for i := 0; i < amount; i++ {
 		wg.Add(1)
 		go worker(&wg, client, &m, i, t)
 	}
 	wg.Wait()
+
+	for key, val := range m.m {
+		//fmt.Println(fmt.Sprintf("%s=\"%d\"", key, val))
+		assert.LessOrEqual(t, math.Abs(float64(val)-serverExpected[key]*float64(amount)), float64(3*amount)/10)
+	}
 
 }
 

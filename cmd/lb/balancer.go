@@ -82,6 +82,9 @@ func health(dst string) bool {
 }
 
 func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
+	if len(dst) == 0 {
+		return fmt.Errorf("no healthy servers found")
+	}
 	safeServer.mux.Lock()
 	s1 := safeServer.v[dst]
 	s1.connectionCount++
