@@ -22,12 +22,6 @@ var serversPool = []string{
 	"http://localhost:8082",
 }
 
-var serverExpected = map[string]float64{
-	"server1:8080": 0.66, //time of delay  - 1
-	"server2:8080": 0.17, //time of delay  - 2
-	"server3:8080": 0.17, //time of delay  - 2
-}
-
 type sum struct {
 	mux sync.Mutex
 	m   map[string]int
@@ -56,9 +50,8 @@ func TestBalancer(t *testing.T) {
 	}
 	wg.Wait()
 
-	for key, val := range m.m {
-		//fmt.Println(fmt.Sprintf("%s=\"%d\"", key, val))
-		assert.LessOrEqual(t, math.Abs(float64(val)-serverExpected[key]*float64(amount)), float64(3*amount)/10)
+	for _, val := range m.m {
+		assert.LessOrEqual(t, math.Abs(float64(val-amount/len(serversPool))), float64(2))
 	}
 
 }

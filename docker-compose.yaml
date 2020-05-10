@@ -6,8 +6,6 @@ networks:
 services:
 
   balancer:
-    environment:
-      - CONF_RESPONSE_DELAY_SEC=1
     build: .
     command: "lb"
     networks:
@@ -16,6 +14,8 @@ services:
       - "8090:8090"
 
   server1:
+    environment:
+      - CONF_RESPONSE_DELAY_SEC=1
     build: .
     networks:
       - servers
