@@ -10,16 +10,16 @@ import (
 	"time"
 )
 
-const baseAddress = "http://localhost:8090"
+const baseAddress = "http://balancer:8090"
 
 var client = http.Client{
 	Timeout: 5 * time.Second,
 }
 
 var serversPool = []string{
-	"http://localhost:8080",
-	"http://localhost:8081",
-	"http://localhost:8082",
+	"http://server1:8080",
+	"http://server2:8080",
+	"http://server3:8080",
 }
 
 type sum struct {
@@ -71,6 +71,7 @@ func BenchmarkBalancer(b *testing.B) {
 	wg.Wait()
 }
 
+
 func BenchmarkServer(b *testing.B) {
 	var wg sync.WaitGroup
 	for n := 0; n < b.N; n++ {
@@ -85,3 +86,4 @@ func BenchmarkServer(b *testing.B) {
 	}
 	wg.Wait()
 }
+

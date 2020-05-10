@@ -1,0 +1,5 @@
+go_binary {
+  name: "integration-tests",
+  testPkg: "github.com/masha-mcr/arch-design-3/integration",
+  benchmarkTimes : "100"
+}

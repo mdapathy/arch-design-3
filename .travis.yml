@@ -1,0 +1,18 @@
+s: linux
+
+language: go
+
+git:
+  depth: 1
+
+go:
+  - 1.14.x
+env:
+  GO111MODULE=on
+
+notifications:
+  email: false
+
+script:
+  - sudo docker-compose -f docker-compose.yaml -f docker-compose.test.yaml up --exit-code-from test
+
