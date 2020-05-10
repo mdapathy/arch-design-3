@@ -7,7 +7,7 @@ services:
 
   balancer:
     environment:
-      - CONF_RESPONSE_DELAY_SEC=0
+      - CONF_RESPONSE_DELAY_SEC=1
     build: .
     command: "lb"
     networks:
@@ -24,7 +24,7 @@ services:
 
   server2:
     environment:
-      - CONF_RESPONSE_DELAY_SEC=1
+      - CONF_RESPONSE_DELAY_SEC=2
     build: .
     networks:
       - servers
