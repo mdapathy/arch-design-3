@@ -1,5 +1,5 @@
 go_binary {
   name: "integration-tests",
-  testPkg: "github.com/masha-mcr/arch-design-3/integration",
+  testPkg: "github.com/mdapathy/arch-design-3/integration",
   benchmarkTimes : "100"
 }

@@ -27,12 +27,10 @@ type sum struct {
 	m   map[string]int
 }
 
-func worker(wg *sync.WaitGroup, client http.Client, m *sum, i int, t *testing.T) {
+func worker(wg *sync.WaitGroup, client http.Client, m *sum, t *testing.T) {
 	defer wg.Done()
 	resp, err := client.Get(fmt.Sprintf("%s/api/v1/some-data", baseAddress))
-	if err != nil {
-		t.Logf("Response error%s", err)
-	}
+	assert.Nil(t, err)
 
 	server := resp.Header.Get("lb-from")
 	m.mux.Lock()
@@ -46,7 +44,7 @@ func TestBalancer(t *testing.T) {
 	amount := 100
 	for i := 0; i < amount; i++ {
 		wg.Add(1)
-		go worker(&wg, client, &m, i, t)
+		go worker(&wg, client, &m, t)
 	}
 	wg.Wait()
 
@@ -71,7 +69,6 @@ func BenchmarkBalancer(b *testing.B) {
 	wg.Wait()
 }
 
-
 func BenchmarkServer(b *testing.B) {
 	var wg sync.WaitGroup
 	for n := 0; n < b.N; n++ {
@@ -86,4 +83,3 @@ func BenchmarkServer(b *testing.B) {
 	}
 	wg.Wait()
 }
-

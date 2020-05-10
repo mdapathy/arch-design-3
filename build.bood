@@ -1,6 +1,6 @@
 go_binary {
   name: "server",
-  pkg: "github.com/masha-mcr/arch-design-3/cmd/server",
+  pkg: "github.com/mdapathy/arch-design-3/cmd/server",
   srcs: [
     "httptools/**/*.go",
     "signal/**/*.go",
@@ -11,7 +11,7 @@ go_binary {
 
 go_binary {
   name: "lb",
-  pkg: "github.com/masha-mcr/arch-design-3/cmd/lb",
+  pkg: "github.com/mdapathy/arch-design-3/cmd/lb",
   srcs: [
     "httptools/**/*.go",
     "signal/**/*.go",
