@@ -9,6 +9,5 @@ WORKDIR /go/src/practice-3
 COPY . .
 
 # TODO: Замініть на запуск bood, який призводить до виконання інтеграційних тестів.
-WORKDIR ./integration
-RUN CGO_ENABLED=0
-ENTRYPOINT ["boodtdma"]
+
+ENTRYPOINT ["./integration-tests.sh"]
