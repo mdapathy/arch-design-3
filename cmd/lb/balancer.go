@@ -1,30 +1,22 @@
 package main
 
 import (
+	"container/heap"
 	"context"
 	"flag"
 	"fmt"
+	"github.com/mdapathy/arch-design-3/cmd/lb/server-heap"
+	"github.com/mdapathy/arch-design-3/httptools"
+	"github.com/mdapathy/arch-design-3/signal"
 	"io"
 	"log"
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/masha-mcr/arch-design-3/httptools"
-	"github.com/masha-mcr/arch-design-3/signal"
 )
 
-const UintSize = 32 << (^uint(0) >> 32 & 1) // 32 or 64
-
-const MaxInt = 1<<(UintSize-1) - 1
-
-type Server struct {
-	connectionCount int
-	isHealthy       bool
-}
-
 type SafeServer struct {
-	v   map[string]Server
+	v   server_heap.ServerHeap
 	mux sync.Mutex
 }
 
@@ -42,23 +34,9 @@ var (
 		"server2:8080",
 		"server3:8080",
 	}
-	safeServer = SafeServer{v: make(map[string]Server, len(serversPool))}
+
+	safeServer = &SafeServer{v: make(server_heap.ServerHeap, 0, len(serversPool))}
 )
-
-func min(m map[string]Server) string {
-	safeServer.mux.Lock()
-	min := MaxInt
-	k := ""
-	for s, c := range m {
-		if min >= c.connectionCount && c.isHealthy {
-			k = s
-			min = c.connectionCount
-		}
-	}
-	safeServer.mux.Unlock()
-	return k
-
-}
 
 func scheme() string {
 	if *https {
@@ -81,22 +59,22 @@ func health(dst string) bool {
 	return true
 }
 
-func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
-	if len(dst) == 0 {
+func forward(rw http.ResponseWriter, r *http.Request) error {
+	safeServer.mux.Lock()
+	dst := heap.Pop(&safeServer.v).(*server_heap.Server)
+	if dst == nil {
 		return fmt.Errorf("no healthy servers found")
 	}
-	safeServer.mux.Lock()
-	s1 := safeServer.v[dst]
-	s1.connectionCount++
-	safeServer.v[dst] = s1
+	dst.ConnectionCount++
+	heap.Push(&safeServer.v, dst)
 	safeServer.mux.Unlock()
 
 	ctx, _ := context.WithTimeout(r.Context(), timeout)
 	fwdRequest := r.Clone(ctx)
 	fwdRequest.RequestURI = ""
-	fwdRequest.URL.Host = dst
+	fwdRequest.URL.Host = dst.ServerName
 	fwdRequest.URL.Scheme = scheme()
-	fwdRequest.Host = dst
+	fwdRequest.Host = dst.ServerName
 
 	resp, err := http.DefaultClient.Do(fwdRequest)
 	if err == nil {
@@ -106,7 +84,7 @@ func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
 			}
 		}
 		if *traceEnabled {
-			rw.Header().Set("lb-from", dst)
+			rw.Header().Set("lb-from", dst.ServerName)
 		}
 		log.Println("fwd", resp.StatusCode, resp.Request.URL)
 		rw.WriteHeader(resp.StatusCode)
@@ -117,24 +95,26 @@ func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
 		}
 
 	} else {
-		log.Printf("Failed to get response from %s: %s", dst, err)
+		log.Printf("Failed to get response from %s: %s", dst.ServerName, err)
 		rw.WriteHeader(http.StatusServiceUnavailable)
 	}
 
 	safeServer.mux.Lock()
-	s2 := safeServer.v[dst]
-	s2.connectionCount--
-	safeServer.v[dst] = s2
+	//dst.ConnectionCount--
+	//heap.Decrease(dst)
+	safeServer.v.Decrease(dst)
 	safeServer.mux.Unlock()
 	return err
 }
 
 func main() {
 	flag.Parse()
-	for _, server := range serversPool {
-		server := server
+
+	heap.Init(&safeServer.v)
+	for i, server := range serversPool {
+		currentServer := server_heap.Server{ServerName: server, ConnectionCount: 0, IsHealthy: false}
 		safeServer.mux.Lock()
-		safeServer.v[server] = Server{0, false}
+		safeServer.v.Push(&currentServer)
 		safeServer.mux.Unlock()
 		go func() {
 			for range time.Tick(10 * time.Second) {
@@ -144,16 +124,15 @@ func main() {
 		go func() {
 			for range time.Tick(1 * time.Second) {
 				safeServer.mux.Lock()
-				s1 := safeServer.v[server]
-				s1.isHealthy = health(server)
-				safeServer.v[server] = s1
+				currentServer.IsHealthy = health(server)
+				heap.Fix(&safeServer.v, i)
 				safeServer.mux.Unlock()
 			}
 		}()
 	}
 
 	frontend := httptools.CreateServer(*port, http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		forward(min(safeServer.v), rw, r)
+		forward(rw, r)
 
 	}))
 
